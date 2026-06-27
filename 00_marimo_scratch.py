@@ -25,23 +25,25 @@ def _(os, scan_and_ingest):
         # Obtener la ruta desde .env, con un fallback de seguridad
         env_path = os.getenv("PDF_TEST_PATH", "~/OneDrive/01 JEZO/00 Asistencia Biometrico")
 
-        try:
-            # Ingestar los archivos PDF que cumplan con el patrón
-            # Patrón: ^\d{2}-\d{2}\s (ej. "12-34 archivo.pdf")
-            df_list = scan_and_ingest(
-                base_path_str=env_path, 
-                regex_pattern=r"^\d{2}-\d{2}\s", 
-                ext=".pdf"
-            )
-            print(f"Se extrajeron {len(df_list)} DataFrames exitosamente.")
-        except Exception as e:
-            print(f"Error durante la ingesta: {e}")
-    return (df_list,)
+        dfs_validos, archivos_malos = scan_and_ingest(
+            base_path_str=env_path, 
+            regex_pattern=r"^\d{2}-\d{2}\s", 
+            ext=".pdf"
+        )
+    
+        print("\n--- RESUMEN DE LA INGESTA ---")
+        print(f"Total de archivos procesados exitosamente: {len(dfs_validos)}")
+    
+        if archivos_malos:
+            print(f"\n⚠️ ATENCIÓN: Hubo {len(archivos_malos)} archivos fallidos/descartados:")
+            for malo in archivos_malos:
+                print(f" - {malo}")
+    return
 
 
 @app.cell
 def _(df_list):
-    df_list[3]
+    df_list[0][3]
     return
 
 

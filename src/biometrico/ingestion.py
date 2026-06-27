@@ -35,35 +35,52 @@ class PDFExtractor:
             for page_num in range(len(doc)):
                 page = doc[page_num]
                 
-                # ==========================================
-                # Definir el área de búsqueda (Bounding Box)
-                # ==========================================
-                margen_superior = 25  #14 con titulo y a veces error, 
-                
-                # page.rect nos da las dimensiones reales (ej. 842 x 1191 para A3)
+                # El valor óptimo encontrado es 25 para saltar el encabezado
+                margen_superior = 25 
                 area_de_busqueda = fitz.Rect(
-                    0,                   # x0: Izquierda 
-                    margen_superior,     # y0: Bajar 80 puntos desde el tope
-                    page.rect.width,     # x1: Derecha (ancho total)
-                    page.rect.height     # y1: Abajo (alto total)
+                    0, 
+                    margen_superior, 
+                    page.rect.width, 
+                    page.rect.height
                 )
                 
-                # Extraer usando el parámetro clip
                 tables = page.find_tables(clip=area_de_busqueda)
                 
                 if tables:
-                    table = tables[0]
-                    df_page = table.to_pandas()
+                    df_page = tables[0].to_pandas()
+                    
+                    # ---------------------------------------------------------
+                    # Limpieza 1: Eliminar filas fantasma (usando la 2da columna)
+                    # ---------------------------------------------------------
+                    if df_page.shape[1] >= 2: # Asegurar que hay al menos 2 columnas
+                        # iloc[:, 1] selecciona la segunda columna
+                        col_2_name = df_page.columns[1]
+                        
+                        # a) Eliminar si es un valor nulo real (NaN)
+                        df_page = df_page.dropna(subset=[col_2_name])
+                        
+                        # b) Eliminar si dice textualmente 'None'
+                        df_page = df_page[df_page[col_2_name].astype(str).str.strip() != 'None']
+                    
+                    # Limpieza 2: Eliminar filas completamente vacías
                     df_page.dropna(how='all', inplace=True)
-                    all_tables.append(df_page)
-                else:
-                    print(f"  -> Advertencia: No se encontró tabla en la pág {page_num + 1}")
+                    
+                    if not df_page.empty:
+                        all_tables.append(df_page)
         
         if not all_tables:
-            print(f"Advertencia: El archivo {file_path.name} está vacío o sin tablas legibles.")
-            return pd.DataFrame()
+            raise ValueError("El archivo está vacío o no contiene tablas legibles.")
             
         final_df = pd.concat(all_tables, ignore_index=True)
+        
+        # ---------------------------------------------------------
+        # Validación Estricta: Exactamente 13 columnas
+        # ---------------------------------------------------------
+        num_columnas = final_df.shape[1]
+        if num_columnas != 13:
+            # Lanzamos un error que será capturado por el orquestador
+            raise ValueError(f"Estructura inválida. Se esperaban 13 columnas, pero se encontraron {num_columnas}.")
+            
         return final_df
 
 class CSVExtractor:
@@ -97,33 +114,38 @@ def get_extractor(extension: str) -> FileExtractor:
 # 3. Lógica de Filtrado y Ejecución
 # ==========================================
 
-def scan_and_ingest(base_path_str: str, regex_pattern: str, ext: str) -> List[pd.DataFrame]:
+def scan_and_ingest(base_path_str: str, regex_pattern: str, ext: str) -> tuple[List[pd.DataFrame], List[str]]:
     """
-    Escanea un directorio sin recursividad, filtra por regex y extensión, 
-    y extrae los datos usando la estrategia inyectada.
+    Escanea el directorio, extrae datos y lleva un registro de los archivos fallidos.
+    Retorna una tupla: (lista_de_dataframes, lista_de_archivos_fallidos)
     """
-    # Resolver la ruta de forma OS-Agnostic
-    # expanduser() convierte '~' a la ruta correcta en Windows o Linux
     base_path = Path(base_path_str).expanduser()
 
     if not base_path.exists():
         raise FileNotFoundError(f"El directorio no existe: {base_path}")
 
-    # Compilar el regex para filtrar los nombres de archivo
     pattern = re.compile(regex_pattern)
-    
-    # Obtener el extractor adecuado (Inyección de Dependencia)
     extractor = get_extractor(ext)
 
     dataframes = []
+    archivos_fallidos = []
 
     # Iterar sobre el directorio sin recursividad
     for file_path in base_path.iterdir():
         if file_path.is_file() and file_path.suffix.lower() == ext.lower():
-            # Verificar si el nombre del archivo coincide con el patrón regex
             if pattern.match(file_path.name):
-                # Extraer los datos y agregarlos a la lista
-                df = extractor.extract(file_path)
-                dataframes.append(df)
+                try:
+                    df = extractor.extract(file_path)
+                    dataframes.append(df)
+                    print(f"  -> ¡Éxito! Importado {file_path.name}")
+                
+                # Aquí capturamos el error de "No son 13 columnas" o "No hay tablas"
+                except ValueError as e:
+                    print(f"  -> ERROR en {file_path.name}: {e} (Descartado)")
+                    archivos_fallidos.append(file_path.name)
+                
+                except Exception as e:
+                    print(f"  -> ERROR INESPERADO en {file_path.name}: {e}")
+                    archivos_fallidos.append(file_path.name)
 
-    return dataframes
+    return dataframes, archivos_fallidos
