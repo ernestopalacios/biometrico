@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "duckdb>=1.5.4",
+    "gdrive-utils",
     "gspread>=6.2.1",
     "marimo>=0.23.11",
     "openpyxl>=3.1.5",
@@ -19,3 +20,6 @@ dependencies = [
 [buid-system]
 requires = ["hatchling"]
 build-backend = "hatching.build"
+
+[tool.uv.sources]
+gdrive-utils = { git = "https://github.com/ernestopalacios/gdrive-utils.git" }

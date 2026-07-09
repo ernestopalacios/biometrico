@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Protocol, List
 import pandas as pd
 from dotenv import load_dotenv
+from datetime import date
 
 import fitz   # PyMuPDF
 import pandas as pd
@@ -30,49 +31,61 @@ class PDFExtractor:
         print(f"Procesando PDF: {file_path.name}")
 
         all_tables = []
-        
+
         with fitz.open(file_path) as doc:
             for page_num in range(len(doc)):
                 page = doc[page_num]
-                
+
                 # El valor óptimo encontrado es 25 para saltar el encabezado
-                margen_superior = 25 
+                margen_superior = os.getenv("MARGEN_SUPERIOR",25)
                 area_de_busqueda = fitz.Rect(
-                    0, 
-                    margen_superior, 
-                    page.rect.width, 
+                    0,
+                    margen_superior,
+                    page.rect.width,
                     page.rect.height
                 )
-                
+
                 tables = page.find_tables(clip=area_de_busqueda)
-                
+
                 if tables:
                     df_page = tables[0].to_pandas()
-                    
+
                     # ---------------------------------------------------------
                     # Limpieza 1: Eliminar filas fantasma (usando la 2da columna)
                     # ---------------------------------------------------------
                     if df_page.shape[1] >= 2: # Asegurar que hay al menos 2 columnas
                         # iloc[:, 1] selecciona la segunda columna
                         col_2_name = df_page.columns[1]
-                        
+
                         # a) Eliminar si es un valor nulo real (NaN)
                         df_page = df_page.dropna(subset=[col_2_name])
-                        
+
                         # b) Eliminar si dice textualmente 'None'
                         df_page = df_page[df_page[col_2_name].astype(str).str.strip() != 'None']
-                    
+
                     # Limpieza 2: Eliminar filas completamente vacías
                     df_page.dropna(how='all', inplace=True)
-                    
+
+                    # Limpieza 3: Eliminar la columna 10 - Para uso en HE
+                    df_page = df_page.drop(columns=df_page.columns[10])
+
+                    # Limpieza 4: Crea la columna 'Date' a partir de la fecha
+                    df_page["Date"] = pd.to_datetime(df_page["Fecha"], format='%d/%m/%Y')
+
+                    # Cambiar todos los nombres de golpe
+                    df_page.columns = ["Dia","Fecha","Tipo","Estado","Entrada_1","Salida_1",
+                        "Entrada_2","Salida_2","Observado","Justificado","Detalle","Codigo","Date"
+                    ]
+
                     if not df_page.empty:
                         all_tables.append(df_page)
-        
+
         if not all_tables:
-            raise ValueError("El archivo está vacío o no contiene tablas legibles.")
-            
+            raise ValueError("El directorio está vacío o no contiene tablas legibles.")
+
         final_df = pd.concat(all_tables, ignore_index=True)
-        
+        final_df = final_df.sort_values(by='Date')
+
         # ---------------------------------------------------------
         # Validación Estricta: Exactamente 13 columnas
         # ---------------------------------------------------------
@@ -80,7 +93,7 @@ class PDFExtractor:
         if num_columnas != 13:
             # Lanzamos un error que será capturado por el orquestador
             raise ValueError(f"Estructura inválida. Se esperaban 13 columnas, pero se encontraron {num_columnas}.")
-            
+
         return final_df
 
 class CSVExtractor:
@@ -138,12 +151,12 @@ def scan_and_ingest(base_path_str: str, regex_pattern: str, ext: str) -> tuple[L
                     df = extractor.extract(file_path)
                     dataframes.append(df)
                     print(f"  -> ¡Éxito! Importado {file_path.name}")
-                
+
                 # Aquí capturamos el error de "No son 13 columnas" o "No hay tablas"
                 except ValueError as e:
                     print(f"  -> ERROR en {file_path.name}: {e} (Descartado)")
                     archivos_fallidos.append(file_path.name)
-                
+
                 except Exception as e:
                     print(f"  -> ERROR INESPERADO en {file_path.name}: {e}")
                     archivos_fallidos.append(file_path.name)
