@@ -8,6 +8,7 @@ dependencies = [
     "duckdb>=1.5.4",
     "gdrive-utils",
     "gspread>=6.2.1",
+    "ibis-framework[duckdb]>=12.0.0",
     "marimo>=0.23.11",
     "openpyxl>=3.1.5",
     "pandas>=2.3.3",

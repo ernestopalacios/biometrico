@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Protocol, List
 import pandas as pd
 from dotenv import load_dotenv
-from datetime import date
+from datetime import date, datetime
 
 import fitz   # PyMuPDF
 import pandas as pd
@@ -69,13 +69,22 @@ class PDFExtractor:
                     # Limpieza 3: Eliminar la columna 10 - Para uso en HE
                     df_page = df_page.drop(columns=df_page.columns[10])
 
-                    # Limpieza 4: Crea la columna 'Date' a partir de la fecha
-                    df_page["Date"] = pd.to_datetime(df_page["Fecha"], format='%d/%m/%Y')
+                    # Limpieza 4: Crea la columna 'fecha_registro' a partir de la fecha
+                    df_page["fecha_registro"] = pd.to_datetime(df_page["Fecha"], format='%d/%m/%Y')
+
+                    # Para auditoria, regustro cuando fue creado y actualizado el registro.
+                    df_page["creacion"] = datetime.now()
+                    df_page["actualizacion"] = datetime.now()
 
                     # Cambiar todos los nombres de golpe
                     df_page.columns = ["Dia","Fecha","Tipo","Estado","Entrada_1","Salida_1",
-                        "Entrada_2","Salida_2","Observado","Justificado","Detalle","Codigo","Date"
+                        "Entrada_2","Salida_2","Observado","Justificado","Detalle","user_id","fecha_registro",
+                        "creacion","actualizacion"
                     ]
+
+                    # Convertimos "SI" a True y todo lo demás (incluyendo "NO", NaN, o vacíos) a False
+                    df_page["Observado"] = df_page["Observado"].eq("SI")
+                    df_page["Justificado"] = df_page["Justificado"].eq("SI")
 
                     if not df_page.empty:
                         all_tables.append(df_page)
@@ -90,9 +99,9 @@ class PDFExtractor:
         # Validación Estricta: Exactamente 13 columnas
         # ---------------------------------------------------------
         num_columnas = final_df.shape[1]
-        if num_columnas != 13:
+        if num_columnas != 15:
             # Lanzamos un error que será capturado por el orquestador
-            raise ValueError(f"Estructura inválida. Se esperaban 13 columnas, pero se encontraron {num_columnas}.")
+            raise ValueError(f"Estructura inválida. Se esperaban 15 columnas, pero se encontraron {num_columnas}.")
 
         return final_df
 

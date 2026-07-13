@@ -1,13 +1,14 @@
 import marimo
 
 __generated_with = "0.23.11"
-app = marimo.App(width="medium")
+app = marimo.App(width="medium", app_title="BIOMETRICO")
 
 
 @app.cell
 def _():
     import marimo as mo
     import os
+    import duckdb
     from dotenv import load_dotenv
     from src.biometrico.ingestion import scan_and_ingest
 
@@ -15,7 +16,25 @@ def _():
 
     # Cargar las variables de entorno desde el archivo .env
     load_dotenv()
-    return GDriveConfig, get_all_data, os, read_worksheet, scan_and_ingest
+    return (
+        GDriveConfig,
+        duckdb,
+        get_all_data,
+        os,
+        read_worksheet,
+        scan_and_ingest,
+    )
+
+
+@app.cell
+def _(duckdb):
+    try:
+        # Connects to MotherDuck and opens the 'biometrico' database
+        db_con = duckdb.connect('md:biometrico')
+        print("Conexión exitosa a MotherDuck: DB 'biometrico'")
+    except Exception as e:
+        print(f"Error connecting to MotherDuck: {e}")
+    return
 
 
 @app.cell
