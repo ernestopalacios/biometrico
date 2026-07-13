@@ -44,7 +44,7 @@ class BiometricoDB:
         # DuckDB uses TYPE[] for arrays/lists
         query_justificacion = """
         CREATE TABLE IF NOT EXISTS justificacion (
-            "Date" DATE,
+            fecha_registro DATE,
             user_id BIGINT,
             Iniciales VARCHAR,
             Entrada_1 TIME,
@@ -72,7 +72,7 @@ class BiometricoDB:
     def upsert_marcas(self, df_marcas: pd.DataFrame):
         """
         Inserts new records into 'marcas'.
-        If the record exists (Date, user_id), it updates the values
+        If the record exists (fecha_registro, user_id), it updates the values
         in case the source PDF was modified, and updates 'actualizacion'.
         """
         # DuckDB can read the pandas dataframe directly from the local scope.
@@ -81,7 +81,7 @@ class BiometricoDB:
         query = """
         INSERT INTO marcas
         SELECT * FROM df_marcas
-        ON CONFLICT ("Date", user_id)
+        ON CONFLICT (fecha_registro, user_id)
         DO UPDATE SET
             Dia = EXCLUDED.Dia,
             Fecha = EXCLUDED.Fecha,
@@ -94,7 +94,7 @@ class BiometricoDB:
             Observado = EXCLUDED.Observado,
             Justificado = EXCLUDED.Justificado,
             Detalle = EXCLUDED.Detalle,
-            actualizacion = CURRENT_DATE;
+            actualizacion = current_date();
         """
 
         try:

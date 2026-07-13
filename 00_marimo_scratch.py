@@ -11,12 +11,13 @@ def _():
     import duckdb
     from dotenv import load_dotenv
     from src.biometrico.ingestion import scan_and_ingest
-
+    from src.biometrico.biometricoDB import BiometricoDB
     from gdrive_utils import GDriveConfig, read_worksheet, get_all_data
 
     # Cargar las variables de entorno desde el archivo .env
     load_dotenv()
     return (
+        BiometricoDB,
         GDriveConfig,
         duckdb,
         get_all_data,
@@ -34,7 +35,7 @@ def _(duckdb):
         print("Conexión exitosa a MotherDuck: DB 'biometrico'")
     except Exception as e:
         print(f"Error connecting to MotherDuck: {e}")
-    return
+    return (db_con,)
 
 
 @app.cell
@@ -66,7 +67,19 @@ def _(os, scan_and_ingest):
 
 @app.cell
 def _(dfs_validos):
-    dfs_validos[1]
+    dfs_validos[0]#["Entrada_1"][10]
+    return
+
+
+@app.cell
+def _(BiometricoDB, db_con):
+    cloud_db = BiometricoDB(db_con)
+    return (cloud_db,)
+
+
+@app.cell
+def _(cloud_db, dfs_validos):
+    cloud_db.upsert_marcas(dfs_validos[0])
     return
 
 

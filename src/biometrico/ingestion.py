@@ -86,6 +86,10 @@ class PDFExtractor:
                     df_page["Observado"] = df_page["Observado"].eq("SI")
                     df_page["Justificado"] = df_page["Justificado"].eq("SI")
 
+                    # Marcas vacias deben ser de tipo 'None'
+                    time_cols = ['Entrada_1', 'Salida_1', 'Entrada_2', 'Salida_2']
+                    df_page[time_cols] = df_page[time_cols].replace('', None)
+
                     if not df_page.empty:
                         all_tables.append(df_page)
 
@@ -93,7 +97,7 @@ class PDFExtractor:
             raise ValueError("El directorio está vacío o no contiene tablas legibles.")
 
         final_df = pd.concat(all_tables, ignore_index=True)
-        final_df = final_df.sort_values(by='Date')
+        final_df = final_df.sort_values(by='fecha_registro')
 
         # ---------------------------------------------------------
         # Validación Estricta: Exactamente 13 columnas
