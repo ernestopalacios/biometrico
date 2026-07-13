@@ -1,0 +1,26 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "references": {
+    "notas_arquitectura": {
+      "path": "~/OneDrive/01 JEZO/7_Obsidian/BigData/01 GestionarOT/CHATLLM/02_Biometrico_OC",
+      "description": "Contiene documentación técnica detallada, especificaciones de arquitectura y reglas de negocio útiles para este proyecto."
+    }
+  },
+  "permissions": [
+    {
+      "action": "read",
+      "resource": "**/.env",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "**/.gdrive_creds.json",
+      "effect": "deny"
+    },
+    {
+      "action": "external_directory",
+      "resource": "~/OneDrive/01 JEZO/7_Obsidian/BigData/01 GestionarOT/CHATLLM/02_Biometrico_OC/**",
+      "effect": "allow"
+    }
+  ]
+}

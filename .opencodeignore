@@ -1,0 +1,60 @@
+# Dependency folders (Massive - always ignore these)
+node_modules/
+vendor/
+.venv/
+env/
+packages/
+
+# Build outputs and caches
+dist/
+build/
+.cache/
+out/
+bin/
+obj/
+
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+secrets/
+marimo/
+pycache/
+__marimo__/
+
+
+# System and editor files
+.git/
+.idea/
+.vscode/
+.DS_Store
+
+# Large media or data directories
+data/
+uploads/
+media/
+*.mp4
+*.zip
+*.tar.gz
+
+# Specific messy or sensitive folders you want to hide
+archive/
+old-code-backup/
+secrets.json
+test/
+tests/
+state/
+LOGS/
+tfm/
+books/
+notebooks/
+xlsx_templates/
+
+# Private Keys
+secrets/
+.env
+.gdrive_creds.json
+
+
