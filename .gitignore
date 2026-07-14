@@ -2,6 +2,7 @@
 
 .env
 .gdrive_creds.json
+.r2_creds.json
 
 
 # Byte-compiled / optimized / DLL files

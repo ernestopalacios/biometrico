@@ -57,7 +57,8 @@ class BiometricoDB:
             ots BIGINT[],
             se_labora VARCHAR[],
             lunch VARCHAR[],
-            PRIMARY KEY ("Date", user_id)
+            archivo VARCHAR,
+            PRIMARY KEY (fecha_registro, user_id)
         );
         """
 
