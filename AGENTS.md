@@ -10,6 +10,7 @@
 - Código en `src/biometrico/`:
   - `ingestion.py` — `scan_and_ingest()`, `PDFExtractor` (PyMuPDF/fitz), filtrado por regex de nombre.
   - `biometricoDB.py` — clase `BiometricoDB(connection)`, DI de conexión DuckDB. Tablas: `marcas`, `justificacion` (PK: `fecha_registro,user_id`).
+- MongoDB (`pymongo`) y Delta Lake (Cloudflare R2, vía `ibis-framework`) son implementadas en clase `justificar`
 - Plantillas Excel en `xlsx_templates/` (ignorado por `.opencodeignore`).
 
 ## Comandos
@@ -21,7 +22,8 @@
 
 ## Entorno / secretos
 - `.env` y `.gdrive_creds.json` están **denied** en `opencode.json` — nunca leer ni imprimir su contenido.
-- Variables usadas: `PDF_TEST_PATH`, `PDF_FILE_PATH` (rutas base con PDFs a ingerir).
+- `.r2_creds.json`: credenciales Cloudflare R2 para Delta Lake (en `.gitignore`, no denied explícito — evita leerlo igualmente).
+- Variables usadas: `PDF_TEST_PATH`, `PDF_FILE_PATH` (rutas base con PDFs a ingerir); `MARGEN_SUPERIOR` (offset del header del PDF en `PDFExtractor`, default `25`).
 - MotherDuck: `duckdb.connect('md:biometrico')` requiere token en entorno.
 
 ## Convenciones repo
@@ -29,5 +31,3 @@
 - No hay tests, lint ni CI configurados. Si añades verificación, documéntalo aquí.
 - `pyproject.toml` tiene typo `[buid-system]`/`hatching.build`; no lo "arregles" sin confirmar (el proyecto no se build-ea, solo se ejecuta).
 
-## Bug conocido
-- `pyproject.toml` build-system está mal escrito pero irrelevante mientras se use `uv run`.

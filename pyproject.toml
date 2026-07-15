@@ -19,9 +19,9 @@ dependencies = [
     "typst>=0.15.0",
 ]
 
-[buid-system]
+[build-system]
 requires = ["hatchling"]
-build-backend = "hatching.build"
+build-backend = "hatchling.build"
 
 [tool.uv.sources]
 gdrive-utils = { git = "https://github.com/ernestopalacios/gdrive-utils.git" }
