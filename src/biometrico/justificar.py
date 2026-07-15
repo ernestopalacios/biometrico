@@ -20,6 +20,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Any
 
+import time
 import duckdb
 import pandas as pd
 
@@ -265,16 +266,31 @@ class Justificar:
         Cachea por fecha para servir a todos los trabajadores de ese día.
         """
         key = fecha_reg.isoformat()
+
+        t0 = time.perf_counter()
         if key in self._mongo_docs_by_date:
             return self._mongo_docs_by_date[key]
+        print(f"  Local Cache Mongo= form Cache in {time.perf_counter()-t0:.2f}s")
 
         try:
             # `fecha` en MongoDB es "YYYY-MM-DDTHH:MM:SS-05:00"
+            # `fecha` tiene indice: mongo_collection.create_index("fecha")
+            # Se reduce el scope con proyeccion
+            query = {"fecha": {"$regex": f"^{key}"}}
+            proyeccion = {
+                "id_ot": 1,
+                "responsable": 1,
+                "colaboradores": 1,
+                "fecha": 1,
+                "_id": 0 # Excluir el ID de mongo si no se usa
+            }
+
             # -> match por prefijo con regex anclado.
-            cursor = self.mongo_collection.find(
-                {"fecha": {"$regex": f"^{key}"}}
-            )
+            cursor = self.mongo_collection.find( query, proyeccion )
+
+            t0 = time.perf_counter()
             docs = list(cursor)
+            print(f"  fecha={key} → {len(docs)} docs in {time.perf_counter()-t0:.2f}s")
         except Exception as e:
             raise MongoConnectionError(
                 f"Error consultando MongoDB para fecha {key}: {e}"
@@ -305,11 +321,13 @@ class Justificar:
         try:
             t = self.delta_table
             # Ibis-agnostic: filtrar por id_ot in ots y traer a pandas
+            t0 = time.perf_counter()
             df = (
                 t.filter(t.id_ot.isin(list(ots)))
                  .select("id_ot", "Cuenta", "Evento", "Iniciales")
                  .execute()
             )
+            print(f"  DeltaLake → {len(ots)} ots in {time.perf_counter()-t0:.2f}s")
         except Exception as e:
             raise DeltaConnectionError(
                 f"Error consultando Delta Lake para ots={ots}: {e}"

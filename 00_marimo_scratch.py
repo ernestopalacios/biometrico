@@ -12,6 +12,7 @@ def _():
     import pymongo
 
     import os
+    from urllib.parse import urlparse
     from datetime import date
 
     from src.biometrico.ingestion import scan_and_ingest
@@ -33,6 +34,7 @@ def _():
         pymongo,
         read_worksheet,
         scan_and_ingest,
+        urlparse,
     )
 
 
@@ -54,7 +56,7 @@ def _(os, pymongo):
     # 2. Conexión a MongoDB (para las Órdenes de Trabajo - OTs)
     # El esquema esperado es la versión "0.3.0" [6]
     mongo_client = pymongo.MongoClient(os.environ["MONGO_URI"])
-    mongo_collection = mongo_client["nombre_db"]["ot_v30"]
+    mongo_collection = mongo_client["eerssa"]["ot_v30"]
     return (mongo_collection,)
 
 
@@ -71,15 +73,20 @@ def _(os):
         "AWS_REGION": "auto",
         "AWS_S3_ALLOW_UNSAFE_RENAME": "true"
     }
-
     return (table_path,)
 
 
 @app.cell
-def _(ibis, os):
+def _(ibis, os, urlparse):
     # 2. Ibis Backend con DuckDB y configuración de R2
     # Conectamos Ibis al backend de DuckDB
     ibis_con = ibis.duckdb.connect()
+
+    # Sanitizar el endpoint: DuckDB espera solo el hostname para el parámetro ENDPOINT
+    _raw_endpoint = os.environ.get("R2_ENDPOINT", "")
+    # Si el usuario puso https://, lo removemos para evitar el error https://https://
+    _parsed_url = urlparse(_raw_endpoint)
+    _clean_endpoint = _parsed_url.netloc if _parsed_url.netloc else _raw_endpoint
     # Configuramos las credenciales de R2 
     # directamente en DuckDB usando un SECRET [2, 3]
     ibis_con.con.execute(f"""
@@ -87,7 +94,7 @@ def _(ibis, os):
             TYPE S3,
             KEY_ID '{os.environ["R2_KEY"]}',
             SECRET '{os.environ["R2_SECRET"]}',
-            ENDPOINT '{os.environ["R2_ENDPOINT"]}',
+            ENDPOINT '{_clean_endpoint}',
             URL_STYLE 'path',
             REGION 'auto'
         );
@@ -139,7 +146,7 @@ def _(os, scan_and_ingest):
 
 @app.cell
 def _(dfs_validos):
-    dfs_validos[1]#["Entrada_1"][10]
+    dfs_validos[0]
     return
 
 
@@ -165,6 +172,36 @@ def _(GDriveConfig, read_worksheet):
 
 
 @app.cell
+def _(mongo_collection):
+    # Verificar índices existentes
+    indices = mongo_collection.index_information()
+    print(indices)
+    return
+
+
+@app.cell
+def _(mongo_collection):
+    mongo_collection.create_index("fecha")
+    return
+
+
+@app.cell
+def _(mongo_collection):
+    plan = mongo_collection.find(
+           {"fecha": {"$regex": "^2024-05-01"}}
+    ).explain()
+    plan
+    return (plan,)
+
+
+@app.cell
+def _(plan):
+    print(plan["executionStats"]["executionStages"]["stage"])  # IXSCAN vs COLLSCAN
+    print(plan["executionStats"]["totalDocsExamined"], plan["executionStats"]["nReturned"])
+    return
+
+
+@app.cell
 def _(
     Justificar,
     db_con,
@@ -186,7 +223,7 @@ def _(
 
         # El método build() orquestra el filtrado y enriquecimiento [1, 10]
         df_justif = justificador.build()
-    
+
         # UI para mostrar el resultado en Marimo [12, 13]
         result_ui = mo.vstack([
             mo.md("### ✅ Nuevas Justificaciones Generadas"),
@@ -201,6 +238,50 @@ def _(
         result_ui = mo.md(f"❌ **Error en el proceso:** {str(e)}")
 
     result_ui
+    return
+
+
+@app.cell
+def _(delta_table):
+    _id_list = [
+        179795,
+        179802,
+        179803,
+        179808,
+        179815,
+        179817,
+        179818,
+        179822
+    ]
+
+    # Ibis-agnostic: filtrar por id_ot in ots y traer a pandas
+    df = (
+        delta_table.filter(delta_table.id_ot.isin(list(_id_list)))
+         .select("id_ot", "Cuenta", "Evento", "Iniciales")
+         .execute()
+    )
+    df
+    return (df,)
+
+
+@app.cell
+def _(df):
+    se_labora: list[str] = []
+    lunch: list[str] = []
+
+    for _, r in df.iterrows():
+        cuenta = str(r.get("Cuenta", "")).strip()
+        id_ot = r.get("id_ot")
+        evento = str(r.get("Evento", "")).strip()
+        row_iniciales = str(r.get("Iniciales", "")).strip()
+
+        if cuenta == "se_labora":
+            se_labora.append(f"OT # {id_ot}. {evento}")
+        elif cuenta == "lunch":
+            lunch.append(f"OT # {id_ot} = {row_iniciales} = {evento}.")
+
+    result = (se_labora, lunch)
+    result
     return
 
 
