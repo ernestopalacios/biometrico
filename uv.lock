@@ -40,7 +40,7 @@ wheels = [
 [[package]]
 name = "biometrico"
 version = "0.1.0"
-source = { virtual = "." }
+source = { editable = "." }
 dependencies = [
     { name = "duckdb" },
     { name = "gdrive-utils" },
@@ -581,7 +581,7 @@ wheels = [
 [[package]]
 name = "gdrive-utils"
 version = "0.1.0"
-source = { git = "https://github.com/ernestopalacios/gdrive-utils.git#7e55eaaa8f03802d9b5d2461f24599e78986410c" }
+source = { git = "https://github.com/ernestopalacios/gdrive-utils.git#b690306b23c3d5a197653e18c9480b3738d34a0e" }
 dependencies = [
     { name = "google-auth" },
     { name = "gspread" },

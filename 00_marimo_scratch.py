@@ -172,36 +172,6 @@ def _(GDriveConfig, read_worksheet):
 
 
 @app.cell
-def _(mongo_collection):
-    # Verificar índices existentes
-    indices = mongo_collection.index_information()
-    print(indices)
-    return
-
-
-@app.cell
-def _(mongo_collection):
-    mongo_collection.create_index("fecha")
-    return
-
-
-@app.cell
-def _(mongo_collection):
-    plan = mongo_collection.find(
-           {"fecha": {"$regex": "^2024-05-01"}}
-    ).explain()
-    plan
-    return (plan,)
-
-
-@app.cell
-def _(plan):
-    print(plan["executionStats"]["executionStages"]["stage"])  # IXSCAN vs COLLSCAN
-    print(plan["executionStats"]["totalDocsExamined"], plan["executionStats"]["nReturned"])
-    return
-
-
-@app.cell
 def _(
     Justificar,
     db_con,
@@ -238,50 +208,6 @@ def _(
         result_ui = mo.md(f"❌ **Error en el proceso:** {str(e)}")
 
     result_ui
-    return
-
-
-@app.cell
-def _(delta_table):
-    _id_list = [
-        179795,
-        179802,
-        179803,
-        179808,
-        179815,
-        179817,
-        179818,
-        179822
-    ]
-
-    # Ibis-agnostic: filtrar por id_ot in ots y traer a pandas
-    df = (
-        delta_table.filter(delta_table.id_ot.isin(list(_id_list)))
-         .select("id_ot", "Cuenta", "Evento", "Iniciales")
-         .execute()
-    )
-    df
-    return (df,)
-
-
-@app.cell
-def _(df):
-    se_labora: list[str] = []
-    lunch: list[str] = []
-
-    for _, r in df.iterrows():
-        cuenta = str(r.get("Cuenta", "")).strip()
-        id_ot = r.get("id_ot")
-        evento = str(r.get("Evento", "")).strip()
-        row_iniciales = str(r.get("Iniciales", "")).strip()
-
-        if cuenta == "se_labora":
-            se_labora.append(f"OT # {id_ot}. {evento}")
-        elif cuenta == "lunch":
-            lunch.append(f"OT # {id_ot} = {row_iniciales} = {evento}.")
-
-    result = (se_labora, lunch)
-    result
     return
 
 

@@ -13,6 +13,11 @@ Enriquece un `df_marcas` (filas ya extraídas de PDFs) con información de:
 Diseño y esquema de tablas: ver `@notas_arquitectura/`
 (1_Database_desing.md, 2_Clase_Justificaciones.md, 3_MongoDB schema.md,
 4_Delta Lake schema.md).
+
+Delta Lake se descarga UNA sola vez por `build()`: se filtra por año
+(la tabla está particionada por año) desde el año más antiguo en
+`df_marcas['fecha_registro']` hasta hoy. Todo el cruce posterior por
+OT se hace en memoria contra esa cache (`self._delta_full_df`).
 """
 
 from __future__ import annotations
@@ -104,6 +109,8 @@ class Justificar:
         self._delta_cache: dict[frozenset, tuple[list[str], list[str]]] = {}
         # Personal: key = user_id, value = dict con datos del trabajador
         self._personal_cache: dict[int, dict] = {}
+        # Cache única de Delta Lake, poblada por _cargar_cache_delta()
+        self._delta_full_df: pd.DataFrame | None = None
 
     # ------------------------------------------------------------------
     # API pública
@@ -127,6 +134,9 @@ class Justificar:
                 "Todas las filas de df_marcas ya existen en 'justificacion'."
             )
 
+        # NUEVO: precargar Delta Lake una sola vez, antes del loop por fila
+        self._cargar_cache_delta(df_nuevos)
+
         # Columnas heredadas
         df_justif = df_nuevos[self._COLS_HEREDADAS].copy().reset_index(drop=True)
 
@@ -146,6 +156,7 @@ class Justificar:
             ots = self._get_ots_for_worker(nombre, fecha_reg)
             ots_list.append(ots)
 
+            # Esto debe salir del Loop
             se_lab, lunch = self._get_delta_texts(ots)
             se_labora_list.append(se_lab)
             lunch_list.append(lunch)
@@ -267,10 +278,8 @@ class Justificar:
         """
         key = fecha_reg.isoformat()
 
-        t0 = time.perf_counter()
         if key in self._mongo_docs_by_date:
             return self._mongo_docs_by_date[key]
-        print(f"  Local Cache Mongo= form Cache in {time.perf_counter()-t0:.2f}s")
 
         try:
             # `fecha` en MongoDB es "YYYY-MM-DDTHH:MM:SS-05:00"
@@ -288,9 +297,9 @@ class Justificar:
             # -> match por prefijo con regex anclado.
             cursor = self.mongo_collection.find( query, proyeccion )
 
-            t0 = time.perf_counter()
+            #t0 = time.perf_counter()
             docs = list(cursor)
-            print(f"  fecha={key} → {len(docs)} docs in {time.perf_counter()-t0:.2f}s")
+            #print(f"  fecha={key} → {len(docs)} docs in {time.perf_counter()-t0:.2f}s")
         except Exception as e:
             raise MongoConnectionError(
                 f"Error consultando MongoDB para fecha {key}: {e}"
@@ -303,13 +312,47 @@ class Justificar:
     # Delta Lake
     # ------------------------------------------------------------------
 
+    def _cargar_cache_delta(self, df_nuevos: pd.DataFrame) -> None:
+        """
+        Descarga de Delta Lake, UNA sola vez por `build()`, todas las filas
+        desde el 01 de enero del año más antiguo presente en
+        `df_nuevos['fecha_registro']` hasta la actualidad.
+
+        Como la tabla está particionada por año, filtrar por año permite
+        poda de particiones (partition pruning): solo se leen los archivos
+        de los años relevantes, no la tabla completa.
+
+        Guarda el resultado en `self._delta_full_df`, que es la única
+        fuente que usará `_get_delta_texts()` de ahora en adelante.
+        """
+        fechas = pd.to_datetime(df_nuevos["fecha_registro"])
+        anio_min = int(fechas.min().year)
+
+        try:
+            t = self.delta_table
+            self._delta_full_df = (
+                t.filter(t.Year >= anio_min)
+                 .select("id_ot", "Cuenta", "Evento", "Iniciales")
+                 .execute()
+            )
+        except Exception as e:
+            raise DeltaConnectionError(
+                f"Error precargando Delta Lake desde el año {anio_min}: {e}"
+            ) from e
+
+        print(
+            f"  ℹ️  Delta Lake: cache precargada desde {anio_min}-01-01"
+            f"({len(self._delta_full_df)} filas)."
+        )
+
     def _get_delta_texts(
         self, ots: list[int]
     ) -> tuple[list[str], list[str]]:
         """
         Para la lista de `ots` devuelve (se_labora, lunch) formateados.
         Cachea por frozenset(ots) — filas con las mismas OTs comparten
-        resultado.
+        resultado. buscando SIEMPRE en la cache interna `self._delta_full_df`
+        (poblada por `_cargar_cache_delta`)
         """
         if not ots:
             return [], []
@@ -319,24 +362,38 @@ class Justificar:
             return self._delta_cache[cache_key]
 
         try:
-            t = self.delta_table
-            # Ibis-agnostic: filtrar por id_ot in ots y traer a pandas
-            t0 = time.perf_counter()
-            df = (
-                t.filter(t.id_ot.isin(list(ots)))
-                 .select("id_ot", "Cuenta", "Evento", "Iniciales")
-                 .execute()
-            )
-            print(f"  DeltaLake → {len(ots)} ots in {time.perf_counter()-t0:.2f}s")
+            if self._delta_full_df is None:
+                raise DeltaConnectionError(
+                    "La cache de Delta Lake no fue inicializada "
+                    "(_cargar_cache_delta no se ejecutó antes de este llamado)."
+                )
+
+            df = self._delta_full_df
+            df_filtrado = df[df["id_ot"].isin(ots)]
+
+            # Verificación importante: toda OT que viene de MongoDB
+            # debería existir en Delta Lake. Si no aparece, es un error
+            # de datos que hay que investigar, no un caso silencioso.
+            ots_encontrados = set(df_filtrado["id_ot"].unique())
+            for ot in ots:
+                if ot not in ots_encontrados:
+                    print(
+                        f"  🔴 ERROR: OT #{ot} no encontrada en Delta Lake. "
+                        f"Toda OT proveniente de MongoDB debería existir "
+                        f"también en Delta Lake — revisar inconsistencia."
+                    )
+
+        except DeltaConnectionError:
+            raise
         except Exception as e:
             raise DeltaConnectionError(
-                f"Error consultando Delta Lake para ots={ots}: {e}"
+                f"Error filtrando cache de Delta Lake para ots={ots}: {e}"
             ) from e
 
         se_labora: list[str] = []
         lunch: list[str] = []
 
-        for _, r in df.iterrows():
+        for _, r in df_filtrado.iterrows():
             cuenta = str(r.get("Cuenta", "")).strip()
             id_ot = r.get("id_ot")
             evento = str(r.get("Evento", "")).strip()
