@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.23.11"
+__generated_with = "0.23.14"
 app = marimo.App(width="medium", app_title="BIOMETRICO")
 
 
@@ -18,7 +18,10 @@ def _():
     from src.biometrico.ingestion import scan_and_ingest
     from src.biometrico.biometricoDB import BiometricoDB
     from src.biometrico.justificar import Justificar
-    from gdrive_utils import GDriveConfig, read_worksheet, get_all_data, build_filename
+    from gdrive_utils import GDriveConfig, read_worksheet, get_all_data, build_filename, calendario
+
+    from gdrive_utils.permisos import read_permisos
+    from gdrive_utils.calendario import read_calendario
 
     # Cargar las variables de entorno desde el archivo .env
     from dotenv import load_dotenv
@@ -32,6 +35,7 @@ def _():
         mo,
         os,
         pymongo,
+        read_calendario,
         read_worksheet,
         scan_and_ingest,
         urlparse,
@@ -208,6 +212,13 @@ def _(
         result_ui = mo.md(f"❌ **Error en el proceso:** {str(e)}")
 
     result_ui
+    return
+
+
+@app.cell
+def _(read_calendario):
+    _test = read_calendario()
+    _test
     return
 
 
