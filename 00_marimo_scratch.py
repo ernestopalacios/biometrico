@@ -14,6 +14,7 @@ def _():
     import os
     from urllib.parse import urlparse
     from datetime import date
+    import pandas as pd
 
     from src.biometrico.ingestion import scan_and_ingest
     from src.biometrico.biometricoDB import BiometricoDB
@@ -171,8 +172,15 @@ def _(GDriveConfig, read_worksheet):
     config = GDriveConfig()
 
     df_personal = read_worksheet(config)
+    df_personal["USER_ID"] = df_personal["USER_ID"].astype(str)
     df_personal
     return (df_personal,)
+
+
+@app.cell
+def _(df_personal):
+    type(df_personal["USER_ID"][0])
+    return
 
 
 @app.cell
@@ -212,6 +220,12 @@ def _(
         result_ui = mo.md(f"❌ **Error en el proceso:** {str(e)}")
 
     result_ui
+    return (df_justif,)
+
+
+@app.cell
+def _(df_justif):
+    df_justif["user_id"][0]
     return
 
 

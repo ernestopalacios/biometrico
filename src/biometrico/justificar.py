@@ -79,7 +79,7 @@ class Justificar:
 
     # Columnas heredadas directamente de df_marcas
     _COLS_HEREDADAS = [
-        "fecha_registro", "user_id",
+        "Dia","fecha_registro", "user_id",
         "Entrada_1", "Salida_1", "Entrada_2", "Salida_2",
         "Observado", "Justificado",
     ]
@@ -161,6 +161,7 @@ class Justificar:
             se_labora_list.append(se_lab)
             lunch_list.append(lunch)
 
+        df_justif["user_id"] = df_justif["user_id"].astype(int)
         df_justif["Iniciales"] = iniciales
         df_justif["Detalle"] = ""            # llenado a mano en Marimo
         df_justif["ots"] = ots_list
@@ -170,7 +171,7 @@ class Justificar:
 
         # Reordenar según schema de la tabla `justificacion`
         return df_justif[[
-            "fecha_registro", "user_id", "Iniciales",
+            "Dia","fecha_registro", "user_id", "Iniciales",
             "Entrada_1", "Salida_1", "Entrada_2", "Salida_2",
             "Observado", "Justificado", "Detalle",
             "ots", "se_labora", "lunch", "archivo",
