@@ -35,8 +35,8 @@ def _():
         ibis,
         mo,
         os,
+        pd,
         pymongo,
-        read_calendario,
         read_worksheet,
         scan_and_ingest,
         urlparse,
@@ -131,7 +131,7 @@ def _(os, scan_and_ingest):
         # Obtener la ruta desde .env, con un fallback de seguridad
         #                    "PDF_TEST_PATH"
         #                    "PDF_FILE_PATH"
-        env_path = os.getenv("PDF_TEST_PATH", "~/OneDrive/01 JEZO/00 Asistencia Biometrico")
+        env_path = os.getenv("PDF_FILE_PATH", "~/OneDrive/01 JEZO/00 Asistencia Biometrico")
 
         dfs_validos, archivos_malos = scan_and_ingest(
             base_path_str=env_path, 
@@ -151,7 +151,27 @@ def _(os, scan_and_ingest):
 
 @app.cell
 def _(dfs_validos):
-    dfs_validos[0]
+    dfs_validos[3]
+    return
+
+
+@app.cell
+def _(pd):
+    #df_final = pd.concat(dfs_validos, ignore_index=True)
+    #df_final.to_pickle("df_final.pkl")
+
+    df_final = pd.read_pickle("df_final.pkl")
+    return (df_final,)
+
+
+@app.cell
+def _(df_final):
+    df_final['user_id'].unique()
+    return
+
+
+@app.cell
+def _():
     return
 
 
@@ -162,8 +182,8 @@ def _(BiometricoDB, db_con):
 
 
 @app.cell
-def _(cloud_db, dfs_validos):
-    cloud_db.upsert_marcas(dfs_validos[0])
+def _(cloud_db, df_final):
+    cloud_db.upsert_marcas(df_final)
     return
 
 
@@ -178,33 +198,28 @@ def _(GDriveConfig, read_worksheet):
 
 
 @app.cell
-def _(df_personal):
-    type(df_personal["USER_ID"][0])
-    return
-
-
-@app.cell
 def _(
     Justificar,
     db_con,
     delta_table,
+    df_final,
     df_personal,
-    dfs_validos,
     mo,
     mongo_collection,
 ):
-    try:
-        # Dependency Injection: Pasamos las conexiones y los DFs base [1, 8, 11]
-        justificador = Justificar(
-            db_con=db_con, # Conexión a MotherDuck/DuckDB para la tabla 'justificacion'
-            delta_table=delta_table, # Tabla Ibis ya inicializada
-            mongo_collection=mongo_collection,
-            df_marcas=dfs_validos[0],
-            df_personal=df_personal
-        )
 
+    # Dependency Injection: Pasamos las conexiones y los DFs base [1, 8, 11]
+    justificador = Justificar(
+        db_con=db_con, # Conexión a MotherDuck/DuckDB para la tabla 'justificacion'
+        delta_table=delta_table, # Tabla Ibis ya inicializada
+        mongo_collection=mongo_collection,
+        df_marcas=df_final,
+        df_personal=df_personal
+    )
+    try:
         # El método build() orquestra el filtrado y enriquecimiento [1, 10]
         df_justif = justificador.build()
+        #cloud_db.insert_new_justificaciones(df_justif)
 
         # UI para mostrar el resultado en Marimo [12, 13]
         result_ui = mo.vstack([
@@ -225,14 +240,13 @@ def _(
 
 @app.cell
 def _(df_justif):
-    df_justif["user_id"][0]
+    df_justif.info()
     return
 
 
 @app.cell
-def _(read_calendario):
-    _test = read_calendario()
-    _test
+def _(cloud_db, df_justif):
+    cloud_db.insert_new_justificaciones(df_justif)
     return
 
 

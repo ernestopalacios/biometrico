@@ -11,7 +11,11 @@ import pandas as pd
 from pathlib import Path
 
 # Cargar las variables de entorno desde el archivo .env
-load_dotenv()
+# # ingestion.py is at biometrico/src/biometico/ingestion.py
+# .env is at biometrico/.env
+# so go up 3 levels from this file: biometico -> src -> biometrico (root)
+ENV_PATH = Path(__file__).resolve().parents[2] / ".env"
+load_dotenv( dotenv_path = ENV_PATH)
 
 # ==========================================
 # 1. Interfaces & Estrategias (Dependency Injection)
@@ -33,11 +37,28 @@ class PDFExtractor:
         all_tables = []
 
         with fitz.open(file_path) as doc:
-            for page_num in range(len(doc)):
+
+            total_pages = len(doc)
+            # El valor óptimo encontrado es 25 para saltar el encabezado
+            margen_superior = int(os.getenv("MARGEN_SUPERIOR",25))
+            # El valor óptimo encontrado es 25 para saltar el encabezado
+            PAGES = int(os.getenv("PAGINAS", -2))
+            print(f" >> Desde Ingestion: Pages = {PAGES}")
+
+            match PAGES:
+                case 0: # Todo el documento
+                    start, end = 0, total_pages
+                case n if n > 0: # Primeras n paginas (depende del largo del doc)
+                    start, end = 0, min(n, total_pages)
+                case n if n < 0: # Úlrimas |n| pages (clamped to document length)
+                    start, end = max(total_pages + n, 0), total_pages
+                case _:
+                    raise ValueError(f"Unexpected PAGES value: {PAGES}")
+
+            for page_num in range(start, end):
                 page = doc[page_num]
 
-                # El valor óptimo encontrado es 25 para saltar el encabezado
-                margen_superior = os.getenv("MARGEN_SUPERIOR",25)
+
                 area_de_busqueda = fitz.Rect(
                     0,
                     margen_superior,

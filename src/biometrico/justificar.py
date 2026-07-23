@@ -199,9 +199,8 @@ class Justificar:
         # Normalizar tipos para el merge
         df = df.copy()
         df["fecha_registro"] = pd.to_datetime(df["fecha_registro"]).dt.date
-        existentes["fecha_registro"] = pd.to_datetime(
-            existentes["fecha_registro"]
-        ).dt.date
+        df["user_id"] = df["user_id"].astype(int) # En GDrive y PDF son tipo String
+        existentes["fecha_registro"] = pd.to_datetime(existentes["fecha_registro"]).dt.date
 
         merged = df.merge(
             existentes,
@@ -231,7 +230,7 @@ class Justificar:
         """Delegates in `gdrive_utils.build_filename` para producir la etiqueta."""
         try:
             data = {
-                "cuadrilla": personal.get("CUADRILLA", ""),
+                "cuadrilla": personal.get("CUADRILLA_OT", ""),
                 "responsable": [personal.get("NOMBRE", "")],
                 "fecha": fecha_reg.isoformat(),
             }
