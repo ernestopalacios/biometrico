@@ -18,6 +18,7 @@ dependencies = [
     "pymupdf==1.28.0",
     "pypst==0.8.0",
     "python-dotenv==1.2.2",
+    "report-typst",
     "typst==0.15.0",
 ]
 
@@ -27,6 +28,7 @@ build-backend = "hatchling.build"
 
 [tool.uv.sources]
 gdrive-utils = { git = "https://github.com/ernestopalacios/gdrive-utils.git" }
+report-typst = { git = "https://github.com/ernestopalacios/report_typst" }
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/biometrico"] # Cambia "biometrico" por el nombre real de tu carpeta de código
