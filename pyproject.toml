@@ -3,7 +3,7 @@ name = "biometrico"
 version = "0.1.0"
 description = "System for processing PDF tables for -Control de Asistencia- "
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
     "deltalake==1.4.2",
     "duckdb==1.5.4",
