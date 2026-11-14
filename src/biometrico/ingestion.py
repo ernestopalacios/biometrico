@@ -32,7 +32,6 @@ class FileExtractor(Protocol):
 class PDFExtractor:
     """Estrategia concreta para extraer tablas de archivos PDF."""
     def extract(self, file_path: Path) -> pd.DataFrame:
-        print(f"Procesando PDF: {file_path.name}")
 
         all_tables = []
 
@@ -43,7 +42,6 @@ class PDFExtractor:
             margen_superior = int(os.getenv("MARGEN_SUPERIOR",25))
             # El valor óptimo encontrado es 25 para saltar el encabezado
             PAGES = int(os.getenv("PAGINAS", -2))
-            print(f" >> Desde Ingestion: Pages = {PAGES}")
 
             match PAGES:
                 case 0: # Todo el documento
