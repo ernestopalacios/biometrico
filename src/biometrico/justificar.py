@@ -407,3 +407,7 @@ class Justificar:
         result = (se_labora, lunch)
         self._delta_cache[cache_key] = result
         return result
+
+    # ------------------------------------------------------------------
+    # Preparar Dataframe: rellenar, subsanar auto, presentar
+    # ------------------------------------------------------------------
